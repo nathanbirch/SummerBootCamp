@@ -1,0 +1,1835 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="style.css" />
+
+    <title>Tetris Game using Vanilla Javascript - Coding Torque</title>
+    <link rel="stylesheet" href="../styles/style.css" />
+
+    <style>
+        /* Import a modern font */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        /* Reset and base styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: rgb(19, 21, 25);
+            overflow: hidden;
+        }
+
+        /* Side menu bar styles */
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 280px;
+            height: 100vh;
+            background: linear-gradient(180deg, #1a1d23 0%, #0f1116 100%);
+            border-right: 2px solid rgba(255, 255, 255, 0.1);
+            padding: 2rem 0;
+            z-index: 1000;
+            box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+        }
+
+        header h1 {
+            color: #ffffff;
+            font-size: 1.8rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 0 1.5rem;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #ffffff 0%, #a0a0a0 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        header ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        header li {
+            margin: 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        header li:last-child {
+            border-bottom: none;
+        }
+
+        header a {
+            display: block;
+            color: #b0b0b0;
+            text-decoration: none;
+            padding: 1.2rem 2rem;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-left: 4px solid transparent;
+            position: relative;
+            overflow: hidden;
+        }
+
+        header a::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 0;
+            height: 100%;
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: -1;
+        }
+
+        header a:hover {
+            color: #ffffff;
+            border-left-color: #00d4ff;
+            transform: translateX(8px);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        header a:hover::before {
+            width: 100%;
+        }
+
+        /* Special styling for current page (Tetris) */
+        header a[href*="tetris"] {
+            color: #00d4ff;
+            border-left-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.1);
+            font-weight: 600;
+        }
+
+        /* Active state */
+        header a:active {
+            transform: translateX(4px);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            header {
+                width: 240px;
+            }
+
+            header h1 {
+                font-size: 1.5rem;
+                margin-bottom: 2rem;
+            }
+
+            header a {
+                padding: 1rem 1.5rem;
+                font-size: 0.9rem;
+            }
+        }
+
+        /* Adjust main content area */
+        body {
+            margin-left: 280px;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                margin-left: 240px;
+            }
+        }
+
+        /* Add a subtle pattern to the sidebar */
+        header::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image:
+                radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.02) 0%, transparent 50%),
+                radial-gradient(circle at 75% 75%, rgba(0, 212, 255, 0.03) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: -1;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>Nathan Birch</h1>
+        <ul>
+            <li>
+                <a href="./index.html"> Home </a>
+            </li>
+            <li>
+                <a href="./pages/about.html"> ABOUT ME </a>
+            </li>
+            <li>
+                <a href="./pages/tech.html"> TECH </a>
+            </li>
+            <li>
+                <a href="./pages/dino.html"> Dino Game </a>
+            </li>
+            <li>
+                <a href="./pages/tetris.html"> Tetris </a>
+            </li>
+        </ul>
+    </header>
+    <script>
+        var Page = {
+            IsSetup: false,
+
+            body: document.getElementsByTagName("body")[0],
+            cvs: document.createElement("canvas"),
+            ctx: 0,
+
+            unitSize: 0,
+            AreaArr: [],
+
+            // calculates the unit size, canvas bounds, and canvas positioning
+            WindowChanged: function () {
+                // Calulcate the unitSize based on window width and height.
+                // The minimum of these calculations will be used.
+                // Adjust for sidebar width
+                var sidebarWidth = window.innerWidth <= 768 ? 240 : 280;
+                var bodyW = document.documentElement.clientWidth - sidebarWidth,
+                    bodyH = document.documentElement.clientHeight,
+                    newUnitW = (bodyW - (bodyW % 80)) / 16,
+                    newUnitH = (bodyH - (bodyH % 100)) / 20,
+                    newUnitMin = Math.max(Math.min(newUnitW, newUnitH), 20);
+
+                // if the calcUnitMin != unitSize, update unitSize, recalculate
+                // all DrawAreaObjs, and update the canvas element bounds
+
+                this.unitSize = newUnitMin;
+
+                // store Right-most & Bottom-most points for canvas bounds
+                var rightLimit = 0,
+                    bottomLimit = 0;
+
+                for (var i = 0; i < Page.AreaArr.length; i++) {
+                    Page.AreaArr[i].CalculateBounds();
+
+                    var newRightLimit =
+                        Page.AreaArr[i].left + Page.AreaArr[i].W,
+                        newBottomLimit =
+                            Page.AreaArr[i].top + Page.AreaArr[i].H;
+
+                    rightLimit = Math.max(newRightLimit, rightLimit);
+                    bottomLimit = Math.max(newBottomLimit, bottomLimit);
+                }
+
+                this.cvs.width = rightLimit;
+                this.cvs.height = bottomLimit;
+
+                // left pos uses Game.W because ideally that area is centered
+                // Adjust positioning for sidebar
+                var topPos = (bodyH - bottomLimit) / 2,
+                    leftPos = sidebarWidth + (bodyW / 2 - this.Game.W / 2),
+                    rightOffset =
+                        (sidebarWidth + bodyW) -
+                        (leftPos + rightLimit) -
+                        this.unitSize * 0.5;
+
+                // if default canvas positioning extends beyond screen, adjust it
+                if (rightOffset < 0) {
+                    leftPos = Math.max(
+                        sidebarWidth + this.unitSize * 0.5,
+                        leftPos + rightOffset,
+                    );
+                }
+
+                this.cvs.style.left = leftPos + "px";
+                this.cvs.style.top = topPos + "px";
+            },
+
+            // performs the page setup
+            Initialize: function () {
+                // if page has not been setup, do initial setup
+                if (this.IsSetup === false) {
+                    document.body.appendChild(Page.cvs);
+
+                    this.body.style.overflow = "hidden";
+                    this.body.style.backgroundColor = "rgb(19,21,25)";
+                    this.cvs.style.position = "absolute";
+                    this.ctx = this.cvs.getContext("2d");
+
+                    this.IsSetup = true;
+                }
+
+                this.WindowChanged();
+
+                // dirty all draw areas
+                for (var i = 0; i < Page.AreaArr.length; i++) {
+                    Page.AreaArr[i].IsDirty = true;
+                }
+            },
+
+            // redraws canvas visuals whenever the page is marked as dirty
+            Update: function () {
+                for (var i = 0; i < Page.AreaArr.length; i++) {
+                    if (Page.AreaArr[i].IsDirty) {
+                        Page.AreaArr[i].Draw();
+                        Page.AreaArr[i].IsDirty = false;
+                    }
+                }
+            },
+        };
+
+        // Definition for Area objects. Bounds are in UNITS
+        function DrawAreaObj (Left, Top, Width, Height, DrawFunction) {
+            // bounds in UNITS
+            this.leftBase = Left;
+            this.topBase = Top;
+            this.widthBase = Width;
+            this.heightBase = Height;
+
+            // bounds in PIXELS
+            this.left = 0;
+            this.top = 0;
+            this.W = 0;
+            this.H = 0;
+
+            // dirty flag (clean yourself up flag, you're better than that)
+            this.IsDirty = false;
+
+            // bounds recalculated and area dirtied when unitSize changes
+            this.CalculateBounds = function () {
+                this.left = this.leftBase * Page.unitSize;
+                this.top = this.topBase * Page.unitSize;
+                this.W = this.widthBase * Page.unitSize;
+                this.H = this.heightBase * Page.unitSize;
+
+                this.IsDirty = true;
+            };
+
+            // draw function as passed in by the callee
+            this.Draw = DrawFunction;
+
+            // push this area into the area arr
+            Page.AreaArr.push(this);
+        }
+
+        Page.Game = new DrawAreaObj(0, 0, 10, 20, function () {
+            // unitSize minus a couple pixels of separation
+            var uDrawSize = Page.unitSize - 2,
+                drawL,
+                drawT;
+
+            // redraws the background elements for game area
+            Page.ctx.fillStyle = "rgb(28,30,34)";
+            Page.ctx.fillRect(this.left, this.top, this.W, this.H);
+
+            // draw the static unit blocks
+            for (var i = 0; i < GM.StaticUnits.length; i++) {
+                for (var j = 0; j < GM.StaticUnits[i].length; j++) {
+                    // get the unit value for this index pair
+                    var uValue = GM.StaticUnits[i][j];
+
+                    // if this unit value is not 0, draw the unit
+                    if (uValue !== 0) {
+                        drawL = i * Page.unitSize + 1;
+                        drawT = j * Page.unitSize + 1;
+
+                        // fill this square with color based on player alive status
+                        Page.ctx.fillStyle = GM.IsAlive
+                            ? uValue
+                            : "rgb(34,36,42)";
+                        Page.ctx.fillRect(
+                            drawL,
+                            drawT,
+                            uDrawSize,
+                            uDrawSize,
+                        );
+                    }
+                }
+            }
+
+            // draw the current active projection and piece (if exists)
+            if (GM.Pc.Cur !== 0 && GM.IsAlive) {
+                var projColor = ColorWithAlpha(GM.Pc.Cur.color, 0.1);
+
+                for (var k = 0; k < GM.Pc.Cur.UO.arr.length; k++) {
+                    drawL =
+                        (GM.Pc.Cur.x + GM.Pc.Cur.UO.arr[k].x) *
+                        Page.unitSize +
+                        1;
+                    drawT =
+                        (GM.Pc.Cur.y + GM.Pc.Cur.UO.arr[k].y) *
+                        Page.unitSize +
+                        1;
+
+                    Page.ctx.fillStyle = GM.Pc.Cur.color;
+                    Page.ctx.fillRect(drawL, drawT, uDrawSize, uDrawSize);
+
+                    // also draw the projection (if one exists)
+                    if (GM.IsAlive && GM.Pc.ProjY !== 0) {
+                        drawT += GM.Pc.ProjY * Page.unitSize;
+
+                        Page.ctx.fillStyle = projColor;
+                        Page.ctx.fillRect(
+                            drawL,
+                            drawT,
+                            uDrawSize,
+                            uDrawSize,
+                        );
+                    }
+                }
+            }
+
+            // if the player is dead, draw the game over text
+            if (!GM.IsAlive) {
+                DrawText(
+                    "GAME OVER",
+                    "rgb(255,255,255)",
+                    "500",
+                    "center",
+                    uDrawSize,
+                    this.W / 2,
+                    this.H / 4,
+                );
+            }
+        });
+
+        Page.HoldArea = new DrawAreaObj(-4.5, 0, 2.5, 2.5, function () {
+            var uDrawSize = Math.floor(Page.unitSize / 2);
+
+            // hold box background
+            Page.ctx.fillStyle = "rgb(28,30,34)";
+            Page.ctx.fillRect(this.left, this.top, this.W, this.H);
+
+            // draw "HOLD" label
+            DrawText(
+                "HOLD",
+                "rgb(128,128,128)",
+                "600",
+                "center",
+                Math.floor(Page.unitSize * 0.3),
+                this.left + this.W / 2,
+                this.top - Page.unitSize * 0.1,
+            );
+
+            // draw the held piece (if one exists)
+            if (GM.HeldPiece !== 0) {
+                Page.ctx.fillStyle = GM.CanHold ? GM.HeldPiece.color : "rgb(64,64,64)";
+
+                var totalL = 0,
+                    totalT = 0,
+                    countedL = [],
+                    countedT = [];
+
+                // calculate average positions of units in order to center
+                for (var i = 0; i < GM.HeldPiece.UO.arr.length; i++) {
+                    var curX = GM.HeldPiece.UO.arr[i].x,
+                        curY = GM.HeldPiece.UO.arr[i].y;
+
+                    if (countedL.indexOf(curX) < 0) {
+                        countedL.push(curX);
+                        totalL += curX;
+                    }
+                    if (countedT.indexOf(curY) < 0) {
+                        countedT.push(curY);
+                        totalT += curY;
+                    }
+                }
+
+                var avgL = uDrawSize * (totalL / countedL.length + 0.5),
+                    avgT = uDrawSize * (totalT / countedT.length + 0.5),
+                    offsetL = this.left + this.W / 2,
+                    offsetT = this.top + this.H / 2;
+
+                // now draw the held piece, using avg vars to center
+                for (var j = 0; j < GM.HeldPiece.UO.arr.length; j++) {
+                    var drawL = Math.floor(
+                        offsetL - avgL + GM.HeldPiece.UO.arr[j].x * uDrawSize,
+                    ),
+                        drawT = Math.floor(
+                            offsetT - avgT + GM.HeldPiece.UO.arr[j].y * uDrawSize,
+                        );
+
+                    Page.ctx.fillRect(
+                        drawL,
+                        drawT,
+                        uDrawSize - 1,
+                        uDrawSize - 1,
+                    );
+                }
+            }
+        });
+
+        Page.UpcomingA = new DrawAreaObj(10.5, 2.6, 2.5, 2.5, function () {
+            var uDrawSize = Math.floor(Page.unitSize / 2),
+                pcA = GM.Pc.Upcoming[0];
+
+            // next box background
+            Page.ctx.fillStyle = "rgb(28,30,34)";
+            Page.ctx.fillRect(this.left, this.top, this.W, this.H);
+
+            // draw "NEXT" label for first upcoming piece
+            DrawText(
+                "NEXT",
+                "rgb(128,128,128)",
+                "600",
+                "center",
+                Math.floor(Page.unitSize * 0.3),
+                this.left + this.W / 2,
+                this.top - Page.unitSize * 0.1,
+            );
+
+            // draw the upcoming piece (if one exists)
+            if (pcA !== 0) {
+                Page.ctx.fillStyle = pcA.color;
+
+                var totalL = 0,
+                    totalT = 0,
+                    countedL = [],
+                    countedT = [];
+
+                // calculate average positions of units in order to center
+                for (var i = 0; i < pcA.UO.arr.length; i++) {
+                    var curX = pcA.UO.arr[i].x,
+                        curY = pcA.UO.arr[i].y;
+
+                    if (countedL.indexOf(curX) < 0) {
+                        countedL.push(curX);
+                        totalL += curX;
+                    }
+                    if (countedT.indexOf(curY) < 0) {
+                        countedT.push(curY);
+                        totalT += curY;
+                    }
+                }
+
+                var avgL = uDrawSize * (totalL / countedL.length + 0.5),
+                    avgT = uDrawSize * (totalT / countedT.length + 0.5),
+                    offsetL = this.left + this.W / 2,
+                    offsetT = this.top + this.H / 2;
+
+                // now draw the upcoming piece, using avg vars to center
+                for (var j = 0; j < pcA.UO.arr.length; j++) {
+                    var drawL = Math.floor(
+                        offsetL - avgL + pcA.UO.arr[j].x * uDrawSize,
+                    ),
+                        drawT = Math.floor(
+                            offsetT - avgT + pcA.UO.arr[j].y * uDrawSize,
+                        );
+
+                    Page.ctx.fillRect(
+                        drawL,
+                        drawT,
+                        uDrawSize - 1,
+                        uDrawSize - 1,
+                    );
+                }
+            }
+        });
+
+        Page.UpcomingB = new DrawAreaObj(10.5, 5.2, 2.5, 2.5, function () {
+            var uDrawSize = Math.floor(Page.unitSize / 2),
+                pcB = GM.Pc.Upcoming[1];
+
+            // next box background
+            Page.ctx.fillStyle = "rgb(28,30,34)";
+            Page.ctx.fillRect(this.left, this.top, this.W, this.H);
+
+            // draw the upcoming piece (if one exists)
+            if (pcB !== 0) {
+                Page.ctx.fillStyle = pcB.color;
+
+                var totalL = 0,
+                    totalT = 0,
+                    countedL = [],
+                    countedT = [];
+
+                // calculate average positions of units in order to center
+                for (var i = 0; i < pcB.UO.arr.length; i++) {
+                    var curX = pcB.UO.arr[i].x,
+                        curY = pcB.UO.arr[i].y;
+
+                    if (countedL.indexOf(curX) < 0) {
+                        countedL.push(curX);
+                        totalL += curX;
+                    }
+                    if (countedT.indexOf(curY) < 0) {
+                        countedT.push(curY);
+                        totalT += curY;
+                    }
+                }
+
+                var avgL = uDrawSize * (totalL / countedL.length + 0.5),
+                    avgT = uDrawSize * (totalT / countedT.length + 0.5),
+                    offsetL = this.left + this.W / 2,
+                    offsetT = this.top + this.H / 2;
+
+                // now draw the upcoming piece, using avg vars to center
+                for (var j = 0; j < pcB.UO.arr.length; j++) {
+                    var drawL = Math.floor(
+                        offsetL - avgL + pcB.UO.arr[j].x * uDrawSize,
+                    ),
+                        drawT = Math.floor(
+                            offsetT - avgT + pcB.UO.arr[j].y * uDrawSize,
+                        );
+
+                    Page.ctx.fillRect(
+                        drawL,
+                        drawT,
+                        uDrawSize - 1,
+                        uDrawSize - 1,
+                    );
+                }
+            }
+        });
+
+        Page.UpcomingC = new DrawAreaObj(10.5, 7.8, 2.5, 2.5, function () {
+            var uDrawSize = Math.floor(Page.unitSize / 2),
+                pcC = GM.Pc.Upcoming[2];
+
+            // next box background
+            Page.ctx.fillStyle = "rgb(28,30,34)";
+            Page.ctx.fillRect(this.left, this.top, this.W, this.H);
+
+            // draw the upcoming piece (if one exists)
+            if (pcC !== 0) {
+                Page.ctx.fillStyle = pcC.color;
+
+                var totalL = 0,
+                    totalT = 0,
+                    countedL = [],
+                    countedT = [];
+
+                // calculate average positions of units in order to center
+                for (var i = 0; i < pcC.UO.arr.length; i++) {
+                    var curX = pcC.UO.arr[i].x,
+                        curY = pcC.UO.arr[i].y;
+
+                    if (countedL.indexOf(curX) < 0) {
+                        countedL.push(curX);
+                        totalL += curX;
+                    }
+                    if (countedT.indexOf(curY) < 0) {
+                        countedT.push(curY);
+                        totalT += curY;
+                    }
+                }
+
+                var avgL = uDrawSize * (totalL / countedL.length + 0.5),
+                    avgT = uDrawSize * (totalT / countedT.length + 0.5),
+                    offsetL = this.left + this.W / 2,
+                    offsetT = this.top + this.H / 2;
+
+                // now draw the upcoming piece, using avg vars to center
+                for (var j = 0; j < pcC.UO.arr.length; j++) {
+                    var drawL = Math.floor(
+                        offsetL - avgL + pcC.UO.arr[j].x * uDrawSize,
+                    ),
+                        drawT = Math.floor(
+                            offsetT - avgT + pcC.UO.arr[j].y * uDrawSize,
+                        );
+
+                    Page.ctx.fillRect(
+                        drawL,
+                        drawT,
+                        uDrawSize - 1,
+                        uDrawSize - 1,
+                    );
+                }
+            }
+        });
+
+        Page.ScoreBarHigh = new DrawAreaObj(10.5, 0, 4.5, 1, function () {
+            // draw the score area back bar
+            Page.ctx.fillStyle = "rgb(28,30,34)";
+            Page.ctx.fillRect(this.left, this.top, this.W, this.H);
+
+            // Draw the trophy symbol
+
+            var miniUnit, left, top, width, height;
+
+            miniUnit = Page.unitSize * 0.01;
+            Page.ctx.fillStyle = "rgb(255,232,96)";
+
+            // trophy base
+            left = Math.floor(this.left + miniUnit * 33);
+            top = Math.floor(this.top + this.H - miniUnit * 28);
+            width = Math.floor(miniUnit * 30);
+            height = Math.floor(miniUnit * 12);
+            Page.ctx.fillRect(left, top, width, height);
+
+            // trophy trunk
+            left = Math.floor(this.left + miniUnit * 42);
+            top = Math.floor(this.top + this.H - miniUnit * 50);
+            width = Math.floor(miniUnit * 12);
+            height = Math.floor(miniUnit * 32);
+            Page.ctx.fillRect(left, top, width, height);
+
+            // trophy bowl
+            left = Math.floor(this.left + miniUnit * 48);
+            top = Math.floor(this.top + this.H - miniUnit * 68);
+            Page.ctx.arc(left, top, miniUnit * 24, 0, Math.PI);
+            Page.ctx.fill();
+
+            // draw the player's current score
+            text = ("00000000" + GM.ScoreHigh).slice(-7);
+            left = this.left + this.W - 4;
+            top = this.top + Page.unitSize * 0.8;
+            size = Math.floor(Page.unitSize * 0.8) + 0.5;
+
+            DrawText(
+                text,
+                "rgb(255,232,96)",
+                "500",
+                "right",
+                size,
+                left,
+                top,
+            );
+        });
+
+        Page.ScoreBarCur = new DrawAreaObj(10.5, 1.1, 4.5, 1, function () {
+            // draw the score area back bar
+            Page.ctx.fillStyle = "rgb(28,30,34)";
+            Page.ctx.fillRect(this.left, this.top, this.W, this.H);
+
+            // draw the player's current level
+            var text, left, top, size, miniUnit;
+            miniUnit = Page.unitSize * 0.01;
+
+            text = ("00" + GM.Level).slice(-2);
+            left = this.left + Math.floor(miniUnit * 50);
+            top = this.top + Page.unitSize * 0.8;
+            size = Math.floor(Page.unitSize * 0.5);
+
+            DrawText(
+                text,
+                "rgb(128,128,128)",
+                "900",
+                "center",
+                size,
+                left,
+                top,
+            );
+
+            // draw the player's current score
+            text = ("00000000" + GM.ScoreCur).slice(-7);
+            left = this.left + this.W - 4;
+            top = this.top + Page.unitSize * 0.8;
+            size = Math.floor(Page.unitSize * 0.8) + 0.5;
+
+            DrawText(
+                text,
+                "rgb(255,255,255)",
+                "500",
+                "right",
+                size,
+                left,
+                top,
+            );
+        });
+
+        //--------------------------------------------------//
+        //    GAME MANAGER OBJECT & LOGIC                   //
+        //--------------------------------------------------//
+
+        var GM = {
+            //-- VARS ---------*/
+
+            // timers
+            TimeCur: 0,
+            TimeEvent: 0,
+            TickRate: 0,
+
+            // player status & score
+            IsAlive: 0,
+            Level: 0,
+            PiecesRemaining: 0,
+
+            // score count and current piece score modifiers
+            ScoreHigh: 0,
+            ScoreCur: 0,
+            ScoreBonus: 0,
+            DifficultFlag: 0,
+
+            // hold piece functionality
+            HeldPiece: 0,
+            CanHold: true,
+
+            // soft drop state
+            SoftDropping: false,
+
+            // 7-bag piece generation system
+            PieceBag: [],
+            BagIndex: 0,
+
+            // T-spin detection
+            LastActionWasTSpin: false,
+            TSpinType: "", // "single", "double", "triple", "mini"
+
+            // lock delay system
+            LockDelay: 500, // milliseconds before piece locks
+            LockTimer: 0,
+            LockTimerActive: false,
+            MaxLockResets: 15, // maximum number of lock resets per piece
+            LockResetCount: 0,
+
+            // array of grid squares
+            StaticUnits: [],
+
+            /*-- FCNS ---------*/
+
+            // Set up intial game var values
+            Initialize: function () {
+                // reset current piece vars
+                this.Pc.Next = this.Pc.Cur = this.Pc.ProjY = 0;
+
+                // reset hold piece functionality
+                this.HeldPiece = 0;
+                this.CanHold = true;
+                this.SoftDropping = false;
+
+                // initialize 7-bag system
+                this.InitializeBag();
+
+                // reset T-spin detection
+                this.LastActionWasTSpin = false;
+                this.TSpinType = "";
+
+                // reset lock delay system
+                this.LockTimer = 0;
+                this.LockTimerActive = false;
+                this.LockResetCount = 0;
+
+                // populate the GM's static unit array with 0's (empty)
+                for (var i = 0; i < 10; i++) {
+                    this.StaticUnits[i] = [];
+                    for (var j = 0; j < 20; j++) {
+                        this.StaticUnits[i][j] = 0;
+                    }
+                }
+
+                // reset timer
+                this.TimeCur = this.TimeEvent = 0;
+                this.TickRate = 500;
+
+                // set up level values for level 1
+                this.PiecesRemaining = 10;
+                this.Level = 1;
+
+                // reset the score and set player to alive
+                this.ScoreCur = 0;
+                this.IsAlive = true;
+            },
+
+            // updates time each frame and executing logic if a tick has passed
+            Update: function () {
+                this.TimeCur = new Date().getTime();
+
+                // Use faster tick rate for soft dropping
+                var currentTickRate = this.SoftDropping ? Math.min(this.TickRate / 10, 50) : this.TickRate;
+
+                // Handle lock delay
+                if (this.LockTimerActive) {
+                    if (this.TimeCur >= this.LockTimer) {
+                        // Lock timer expired, force lock the piece
+                        this.Pc.Freeze();
+                        this.LockTimerActive = false;
+                        Page.Game.IsDirty = true;
+                        return;
+                    }
+                }
+
+                if (this.TimeCur >= this.TimeEvent) {
+                    if (GM.Pc.Cur === 0 && this.IsAlive) {
+                        this.Pc.Generate();
+                    } else {
+                        var canMoveDown = this.Pc.CheckCollisions(0, 0, 1) === 0;
+
+                        if (canMoveDown) {
+                            // Piece can move down normally
+                            this.Pc.DoGravity();
+                            this.LockTimerActive = false; // Cancel lock timer
+                        } else {
+                            // Piece can't move down, start/continue lock delay
+                            if (!this.LockTimerActive) {
+                                this.StartLockDelay();
+                            }
+                        }
+
+                        this.Pc.ProjY = this.Pc.TryProject();
+                        Page.Game.IsDirty = true;
+                    }
+
+                    this.RefreshTimer(currentTickRate);
+                }
+            },
+
+            // Start the lock delay timer
+            StartLockDelay: function () {
+                this.LockTimer = this.TimeCur + this.LockDelay;
+                this.LockTimerActive = true;
+                this.LockResetCount = 0;
+            },
+
+            // Reset lock delay (called when piece moves/rotates during lock delay)
+            ResetLockDelay: function () {
+                if (this.LockTimerActive && this.LockResetCount < this.MaxLockResets) {
+                    this.LockTimer = this.TimeCur + this.LockDelay;
+                    this.LockResetCount++;
+                    return true;
+                }
+                return false;
+            },
+
+            // Initialize the 7-bag system
+            InitializeBag: function () {
+                this.PieceBag = [0, 1, 2, 3, 4, 5, 6]; // 7 piece types
+                this.ShuffleBag();
+                this.BagIndex = 0;
+            },
+
+            // Shuffle the current bag using Fisher-Yates algorithm
+            ShuffleBag: function () {
+                for (var i = this.PieceBag.length - 1; i > 0; i--) {
+                    var j = Math.floor(Math.random() * (i + 1));
+                    var temp = this.PieceBag[i];
+                    this.PieceBag[i] = this.PieceBag[j];
+                    this.PieceBag[j] = temp;
+                }
+            },
+
+            // Get next piece from bag
+            GetNextPieceFromBag: function () {
+                if (this.BagIndex >= this.PieceBag.length) {
+                    // Bag is empty, refill and shuffle
+                    this.InitializeBag();
+                }
+
+                var pieceType = this.PieceBag[this.BagIndex];
+                this.BagIndex++;
+
+                switch (pieceType) {
+                    case 0: return GM.O();
+                    case 1: return GM.I();
+                    case 2: return GM.S();
+                    case 3: return GM.Z();
+                    case 4: return GM.L();
+                    case 5: return GM.J();
+                    case 6: return GM.T();
+                    default: return GM.O();
+                }
+            },
+
+            // Check if a T-spin occurred and what type
+            CheckTSpin: function (linesCleared) {
+                if (!this.LastActionWasTSpin || linesCleared === 0) return "";
+
+                var piece = GM.Pc.Cur;
+                if (!piece || piece.color !== "rgb(160,62,255)") return ""; // Not T piece
+
+                // Enhanced T-spin detection
+                var corners = this.GetTSpinCorners(piece.x, piece.y);
+                var filledCorners = 0;
+                var frontCorners = 0; // Corners in front of the T-piece's orientation
+
+                // Determine which corners are "front" based on rotation
+                var frontCornerIndices = this.GetFrontCornerIndices(piece.rotationState);
+
+                for (var i = 0; i < corners.length; i++) {
+                    var corner = corners[i];
+                    var isFilled = false;
+
+                    if (corner.x < 0 || corner.x >= 10 || corner.y < 0 || corner.y >= 20) {
+                        isFilled = true; // Out of bounds counts as filled
+                    } else if (corner.y >= 0 && GM.StaticUnits[corner.x][corner.y] !== 0) {
+                        isFilled = true;
+                    }
+
+                    if (isFilled) {
+                        filledCorners++;
+                        if (frontCornerIndices.indexOf(i) >= 0) {
+                            frontCorners++;
+                        }
+                    }
+                }
+
+                // T-spin requirements:
+                // - At least 3 corners filled AND
+                // - At least 2 front corners filled (prevents mini T-spins in some cases)
+                var isValidTSpin = filledCorners >= 3;
+
+                // For very strict T-spin detection (like some modern games), uncomment:
+                // isValidTSpin = filledCorners >= 3 && frontCorners >= 2;
+
+                if (isValidTSpin) {
+                    if (linesCleared === 1) return "single";
+                    if (linesCleared === 2) return "double";
+                    if (linesCleared === 3) return "triple";
+                }
+
+                return "";
+            },
+
+            // Get front corner indices based on T-piece rotation
+            GetFrontCornerIndices: function (rotationState) {
+                switch (rotationState) {
+                    case 0: return [0, 1]; // Top corners when T points up
+                    case 1: return [1, 3]; // Right corners when T points right
+                    case 2: return [2, 3]; // Bottom corners when T points down
+                    case 3: return [0, 2]; // Left corners when T points left
+                    default: return [0, 1];
+                }
+            },
+
+            // Get the four corner positions for T-spin detection
+            GetTSpinCorners: function (x, y) {
+                return [
+                    { x: x - 1, y: y - 1 }, // top-left
+                    { x: x + 1, y: y - 1 }, // top-right
+                    { x: x - 1, y: y + 1 }, // bottom-left
+                    { x: x + 1, y: y + 1 }  // bottom-right
+                ];
+            },
+
+            // reset the tick timer (generates a new TimeEvent target)
+            RefreshTimer: function (customTickRate) {
+                var tickRate = customTickRate || this.TickRate;
+                this.TimeEvent = new Date().getTime() + tickRate;
+            },
+
+            // hold piece functionality
+            HoldPiece: function () {
+                if (!this.CanHold || !this.Pc.Cur) return false;
+
+                var tempPiece = this.HeldPiece;
+                this.HeldPiece = this.CreatePieceOfType(this.Pc.Cur);
+
+                if (tempPiece) {
+                    this.Pc.Cur = tempPiece;
+                    this.Pc.Cur.x = 5;
+                    this.Pc.Cur.y = 0;
+                } else {
+                    this.Pc.Cur = 0;
+                }
+
+                this.CanHold = false;
+                Page.Game.IsDirty = true;
+                Page.HoldArea.IsDirty = true;
+                return true;
+            },
+
+            // create a fresh piece of the same type as the given piece
+            CreatePieceOfType: function (piece) {
+                var color = piece.color;
+                var newPiece;
+                if (color === "rgb(255,232,51)") newPiece = GM.O();
+                else if (color === "rgb(51,255,209)") newPiece = GM.I();
+                else if (color === "rgb(106,255,51)") newPiece = GM.S();
+                else if (color === "rgb(255,51,83)") newPiece = GM.Z();
+                else if (color === "rgb(64,100,255)") newPiece = GM.L(); // Blue L piece
+                else if (color === "rgb(255,129,51)") newPiece = GM.J(); // Orange J piece
+                else if (color === "rgb(160,62,255)") newPiece = GM.T();
+                else return 0;
+
+                newPiece.rotationState = 0; // Reset rotation state
+                return newPiece;
+            },
+
+            // called when a piece is spawned, advances level if needed
+            PieceSpawned: function () {
+                this.PiecesRemaining--;
+                this.CanHold = true; // Reset hold ability when new piece spawns
+                this.LockTimerActive = false; // Reset lock delay for new piece
+                this.LockResetCount = 0;
+                if (this.PiecesRemaining <= 0) {
+                    this.AdvanceLevel();
+                }
+            },
+
+            // advance level, recalculate TickRate, reset pieces remaining
+            AdvanceLevel: function () {
+                this.Level++;
+
+                this.TickRate = Math.floor(
+                    555 * Math.exp(this.Level / -10),
+                );
+                this.PiecesRemaining = Math.floor(5000 / this.TickRate);
+
+                Page.ScoreBarCur.IsDirty = true;
+            },
+
+            // check specified rows to see if any can be cleared
+            CheckUnits: function (checkRowsRaw) {
+                var scoreMult = 0,
+                    pieceScore = 0,
+                    checkRows = [],
+                    linesCleared = 0;
+
+                // add the scoreBonus for dropping
+                if (this.ScoreBonus > 0) {
+                    pieceScore += this.ScoreBonus;
+                }
+
+                // sort the rows
+                for (var a = 0; a < 20; a++) {
+                    if (checkRowsRaw.indexOf(a) >= 0) {
+                        checkRows.push(a);
+                    }
+                }
+
+                for (var i = 0; i < checkRows.length; i++) {
+                    var hasGap = false,
+                        checkIndex = checkRows[i];
+
+                    for (var j = 0; j < GM.StaticUnits.length; j++) {
+                        if (GM.StaticUnits[j][checkIndex] === 0) {
+                            hasGap = true;
+                            break;
+                        }
+                    }
+
+                    if (hasGap === false) {
+                        for (var k = 0; k < GM.StaticUnits.length; k++) {
+                            GM.StaticUnits[k].splice(checkIndex, 1);
+                            GM.StaticUnits[k].unshift(0);
+                        }
+
+                        linesCleared++;
+                        var baseScore = 100 + 200 * scoreMult;
+                        if (scoreMult > 2) {
+                            baseScore += 100;
+                        }
+                        pieceScore += baseScore;
+                        scoreMult++;
+                    }
+                }
+
+                // Check for T-spin and apply multipliers
+                var tSpinType = this.CheckTSpin(linesCleared);
+                if (tSpinType !== "") {
+                    var tSpinMultiplier = 1;
+                    switch (tSpinType) {
+                        case "single": tSpinMultiplier = 8; break;   // T-spin Single: 800 points
+                        case "double": tSpinMultiplier = 12; break;  // T-spin Double: 1200 points  
+                        case "triple": tSpinMultiplier = 16; break;  // T-spin Triple: 1600 points
+                    }
+                    pieceScore = Math.max(pieceScore, 100 * tSpinMultiplier);
+                }
+
+                if (this.DifficultFlag === 1) {
+                    pieceScore = Math.floor(pieceScore * 1.5);
+                    this.DifficultFlag = 0;
+                }
+
+                if (pieceScore > 0) {
+                    this.ScoreCur += pieceScore;
+                    Page.ScoreBarCur.IsDirty = true;
+
+                    this.ScoreBonus = 0;
+
+                    if (scoreMult > 3) {
+                        this.DifficultFlag = 1;
+                    }
+                }
+
+                // Reset T-spin flag
+                this.LastActionWasTSpin = false;
+                this.TSpinType = "";
+            },
+
+            GameOver: function () {
+                Page.Game.IsDirty = Page.ScoreBarCur.IsDirty = true;
+
+                if (this.ScoreCur > this.ScoreHigh) {
+                    this.ScoreHigh = this.ScoreCur;
+                    Page.ScoreBarHigh.IsDirty = true;
+                }
+
+                this.IsAlive = false;
+            },
+        };
+
+        //--------------------------------------------------//
+        //    PIECE OBJECT BUILDER                          //
+        //--------------------------------------------------//
+
+        // PcObj is used to create new piece object instances based on the
+        // passed in parameters. PcObj is called by predefined templates
+
+        GM.PcObj = function (color, rotCount, units) {
+            this.x = 5;
+            this.y = 0;
+            this.color = color;
+            this.UO = {};
+            this.rotationState = 0; // Track current rotation state
+
+            // rotate this piece clockwise by advancing to next unit obj of linked list
+            this.Rotate = function () {
+                this.UO = this.UO.nextUO;
+                this.rotationState = (this.rotationState + 1) % 4;
+            };
+
+            // rotate this piece counterclockwise by going to previous unit obj
+            this.RotateCounterClockwise = function () {
+                this.UO = this.UO.prevUO;
+                this.rotationState = (this.rotationState + 3) % 4; // +3 is same as -1 in mod 4
+            };
+
+            // rotate this piece 180 degrees by rotating twice
+            this.Rotate180 = function () {
+                this.UO = this.UO.nextUO.nextUO;
+                this.rotationState = (this.rotationState + 2) % 4;
+            };
+
+            // set up the piece unit object linked list to define rotations
+            this.SetUO = function (rotCount, units) {
+                var linkedListUO = [];
+
+                linkedListUO[0] = { nextUO: 0, prevUO: 0, arr: [] };
+                linkedListUO[0].arr = units;
+
+                for (var i = 0; i < rotCount; i++) {
+                    var nextI = i + 1 < rotCount ? i + 1 : 0;
+                    linkedListUO[i] = { nextUO: 0, prevUO: 0, arr: [] };
+
+                    if (i > 0) {
+                        linkedListUO[i - 1].nextUO = linkedListUO[i];
+                        linkedListUO[i].prevUO = linkedListUO[i - 1];
+                    }
+
+                    for (var j = 0; j < units.length; j++) {
+                        var unX, unY;
+
+                        if (i === 0) {
+                            unX = units[j].x;
+                            unY = units[j].y;
+                        } else {
+                            unX = linkedListUO[i - 1].arr[j].y * -1;
+                            unY = linkedListUO[i - 1].arr[j].x;
+                        }
+
+                        linkedListUO[i].arr[j] = { x: unX, y: unY };
+                    }
+                }
+
+                // Complete the circular linked list
+                linkedListUO[rotCount - 1].nextUO = linkedListUO[0];
+                linkedListUO[0].prevUO = linkedListUO[rotCount - 1];
+                this.UO = linkedListUO[0];
+            };
+            this.SetUO(rotCount, units);
+        };
+
+        //--------------------------------------------------//
+        //    PIECE TYPE TEMPLATES                          //
+        //--------------------------------------------------//
+
+        // Templates create a new piece object instance based on
+        // their color, rotation count, and unit block definitions.
+
+        // O - Square piece definition
+        GM.O = function () {
+            return new GM.PcObj("rgb(255,232,51)", 1, [
+                { x: -1, y: 0 },
+                { x: 0, y: 0 },
+                { x: -1, y: 1 },
+                { x: 0, y: 1 },
+            ]);
+        };
+
+        // I - Line piece definition
+        GM.I = function () {
+            return new GM.PcObj("rgb(51,255,209)", 2, [
+                { x: -2, y: 0 },
+                { x: -1, y: 0 },
+                { x: 0, y: 0 },
+                { x: 1, y: 0 },
+            ]);
+        };
+
+        // S - Right facing zigzag piece definition
+        GM.S = function () {
+            return new GM.PcObj("rgb(106,255,51)", 2, [
+                { x: 0, y: 0 },
+                { x: 1, y: 0 },
+                { x: -1, y: 1 },
+                { x: 0, y: 1 },
+            ]);
+        };
+
+        // Z - Left facing zigzag piece definition
+        GM.Z = function () {
+            return new GM.PcObj("rgb(255,51,83)", 2, [
+                { x: -1, y: 0 },
+                { x: 0, y: 0 },
+                { x: 0, y: 1 },
+                { x: 1, y: 1 },
+            ]);
+        };
+
+        // L - Right facing angle piece definition
+        GM.L = function () {
+            return new GM.PcObj("rgb(64,100,255)", 4, [
+                { x: -1, y: 0 },
+                { x: 0, y: 0 },
+                { x: 1, y: 0 },
+                { x: -1, y: -1 },
+            ]);
+        };
+
+        // J - Left facing angle piece definition
+        GM.J = function () {
+            return new GM.PcObj("rgb(255,129,51)", 4, [
+                { x: -1, y: 0 },
+                { x: 0, y: 0 },
+                { x: 1, y: 0 },
+                { x: 1, y: -1 },
+            ]);
+        };
+
+        // T - Hat shaped piece definition
+        GM.T = function () {
+            return new GM.PcObj("rgb(160,62,255)", 4, [
+                { x: -1, y: 0 },
+                { x: 0, y: 0 },
+                { x: 1, y: 0 },
+                { x: 0, y: -1 },
+            ]);
+        };
+
+        //--------------------------------------------------//
+        //    ACTIVE PIECE CONTROLLER                       //
+        //--------------------------------------------------//
+
+        // Controls the generation, movement, and placement of piece
+        // objects. Monitors the current piece and upcoming piece
+
+        GM.Pc = {
+            //-- VARS ---------*/
+
+            // current piece, projected Y pos of cur piece
+            Cur: 0,
+            ProjY: 0,
+
+            // upcoming pieces
+            Upcoming: [0, 0, 0],
+
+            // Wall kick data (SRS - Super Rotation System) - Enhanced for T-spins
+            WallKickData: {
+                // Standard pieces (J, L, S, T, Z) - Enhanced with additional kicks
+                JLSTZ: {
+                    "0->1": [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2], [2, 0], [2, 1], [2, -2]],
+                    "1->0": [[0, 0], [1, 0], [1, -1], [0, 2], [1, 2], [-2, 0], [-2, -1], [-2, 2]],
+                    "1->2": [[0, 0], [1, 0], [1, -1], [0, 2], [1, 2], [-2, 0], [-2, -1], [-2, 2]],
+                    "2->1": [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2], [2, 0], [2, 1], [2, -2]],
+                    "2->3": [[0, 0], [1, 0], [1, 1], [0, -2], [1, -2], [-2, 0], [-2, 1], [-2, -2]],
+                    "3->2": [[0, 0], [-1, 0], [-1, -1], [0, 2], [-1, 2], [2, 0], [2, -1], [2, 2]],
+                    "3->0": [[0, 0], [-1, 0], [-1, -1], [0, 2], [-1, 2], [2, 0], [2, -1], [2, 2]],
+                    "0->3": [[0, 0], [1, 0], [1, 1], [0, -2], [1, -2], [-2, 0], [-2, 1], [-2, -2]]
+                },
+                // I piece has different kick data
+                I: {
+                    "0->1": [[0, 0], [-2, 0], [1, 0], [-2, -1], [1, 2]],
+                    "1->0": [[0, 0], [2, 0], [-1, 0], [2, 1], [-1, -2]],
+                    "1->2": [[0, 0], [-1, 0], [2, 0], [-1, 2], [2, -1]],
+                    "2->1": [[0, 0], [1, 0], [-2, 0], [1, -2], [-2, 1]],
+                    "2->3": [[0, 0], [2, 0], [-1, 0], [2, 1], [-1, -2]],
+                    "3->2": [[0, 0], [-2, 0], [1, 0], [-2, -1], [1, 2]],
+                    "3->0": [[0, 0], [1, 0], [-2, 0], [1, -2], [-2, 1]],
+                    "0->3": [[0, 0], [-1, 0], [2, 0], [-1, 2], [2, -1]]
+                },
+                // O piece doesn't rotate
+                O: {}
+            },
+
+            //-- FCNS ---------*/
+
+            // Get current rotation state (0, 1, 2, 3)
+            GetRotationState: function () {
+                return this.Cur ? this.Cur.rotationState : 0;
+            },
+
+            // Get piece type for wall kick table
+            GetPieceType: function () {
+                if (!this.Cur) return "JLSTZ";
+
+                var color = this.Cur.color;
+                if (color === "rgb(51,255,209)") return "I"; // I piece
+                if (color === "rgb(255,232,51)") return "O"; // O piece
+                return "JLSTZ"; // All other pieces
+            },
+
+            // Try rotation with wall kicks
+            TryRotationWithKicks: function (rotationType) {
+                if (!this.Cur) return false;
+
+                var pieceType = this.GetPieceType();
+                var currentState = this.GetRotationState();
+                var newState, kickKey;
+
+                // Determine target state and kick key
+                if (rotationType === "clockwise") {
+                    newState = (currentState + 1) % 4;
+                    kickKey = currentState + "->" + newState;
+                } else if (rotationType === "counterclockwise") {
+                    newState = (currentState + 3) % 4; // +3 is same as -1 in mod 4
+                    kickKey = currentState + "->" + newState;
+                } else if (rotationType === "180") {
+                    newState = (currentState + 2) % 4;
+                    // For 180 rotation, try both possible paths
+                    kickKey = currentState + "->" + newState;
+                }
+
+                // O piece doesn't rotate
+                if (pieceType === "O") return false;
+
+                var kickTable = this.WallKickData[pieceType];
+                var kicks = kickTable[kickKey] || [[0, 0]];
+
+                // Try each kick offset
+                for (var i = 0; i < kicks.length; i++) {
+                    var kickX = kicks[i][0];
+                    var kickY = kicks[i][1];
+
+                    var rotValue = 1;
+                    if (rotationType === "counterclockwise") rotValue = 2;
+                    if (rotationType === "180") rotValue = 3;
+
+                    var collisions = this.CheckCollisions(rotValue, kickX, kickY);
+
+                    if (collisions === 0) {
+                        // Successful rotation with this kick
+                        if (rotationType === "clockwise") {
+                            this.Cur.Rotate();
+                        } else if (rotationType === "counterclockwise") {
+                            this.Cur.RotateCounterClockwise();
+                        } else if (rotationType === "180") {
+                            this.Cur.Rotate180();
+                        }
+
+                        // Apply the kick offset
+                        this.Cur.x += kickX;
+                        this.Cur.y += kickY;
+
+                        // Set T-spin potential for T pieces (any successful rotation)
+                        if (this.Cur.color === "rgb(160,62,255)") { // T piece
+                            GM.LastActionWasTSpin = true;
+                        }
+
+                        // Reset lock delay if active
+                        if (GM.LockTimerActive) {
+                            GM.ResetLockDelay();
+                        }
+
+                        return true;
+                    }
+                }
+
+                return false;
+            },
+
+            // push upcoming piece to current & randomize new upcoming piece
+            Generate: function () {
+                // push upcoming piece to current and push down other upcomings
+                this.Cur = this.Upcoming[0];
+                this.Upcoming[0] = this.Upcoming[1];
+                this.Upcoming[1] = this.Upcoming[2];
+
+                // check if the player lost
+                if (this.Cur !== 0) {
+                    var spawnCollisions = this.CheckCollisions(0, 0, 0);
+                    if (spawnCollisions > 0) {
+                        GM.GameOver();
+                        this.Freeze();
+                    }
+                }
+
+                // if player is alive, generate new upcoming piece using bag system
+                if (GM.IsAlive !== 0) {
+                    this.Upcoming[2] = GM.GetNextPieceFromBag();
+
+                    // if a current piece was set, inform the GM
+                    if (this.Cur !== 0) {
+                        GM.PieceSpawned();
+                        Page.Game.IsDirty = true;
+                    }
+
+                    Page.UpcomingA.IsDirty =
+                        Page.UpcomingB.IsDirty =
+                        Page.UpcomingC.IsDirty =
+                        Page.HoldArea.IsDirty =
+                        true;
+                }
+            },
+
+            // freeze the current piece's position and rotation
+            Freeze: function () {
+                if (GM.IsAlive) {
+                    var affectedRows = [];
+
+                    for (var i = 0; i < this.Cur.UO.arr.length; i++) {
+                        var staticX = this.Cur.x + this.Cur.UO.arr[i].x,
+                            staticY = this.Cur.y + this.Cur.UO.arr[i].y;
+
+                        if (
+                            staticY >= 0 &&
+                            staticY <= GM.StaticUnits[0].length
+                        ) {
+                            GM.StaticUnits[staticX][staticY] =
+                                this.Cur.color;
+                        }
+
+                        if (affectedRows.indexOf(staticY) < 0) {
+                            affectedRows.push(staticY);
+                        }
+                    }
+
+                    GM.CheckUnits(affectedRows);
+                    this.Generate();
+                }
+            },
+
+            // apply gravity to the current piece, checking for collisions
+            DoGravity: function () {
+                if (this.Cur !== 0) {
+                    var collisions = this.CheckCollisions(0, 0, 1);
+
+                    if (collisions === 0) {
+                        this.Cur.y++;
+                    }
+                    // Don't freeze immediately - let lock delay handle it
+                }
+                GM.RefreshTimer();
+            },
+
+            // attempt to rotate the current piece clockwise, returns bool
+            TryRotate: function () {
+                return this.TryRotationWithKicks("clockwise");
+            },
+
+            // attempt to rotate the current piece counterclockwise, returns bool
+            TryRotateCounterClockwise: function () {
+                return this.TryRotationWithKicks("counterclockwise");
+            },
+
+            // attempt to rotate the current piece 180 degrees, returns bool
+            TryRotate180: function () {
+                return this.TryRotationWithKicks("180");
+            },
+
+            // attempt to move current piece base on given XY, returns bool
+            TryMove: function (moveX, moveY) {
+                if (this.Cur !== 0) {
+                    var collisions = this.CheckCollisions(0, moveX, moveY);
+
+                    if (collisions === 0) {
+                        this.Cur.x += moveX;
+                        this.Cur.y += moveY;
+
+                        if (moveY > 0) {
+                            GM.RefreshTimer();
+                            GM.ScoreBonus++;
+                        }
+
+                        // Clear T-spin flag on movement (unless it's just gravity)
+                        if (moveX !== 0) {
+                            GM.LastActionWasTSpin = false;
+                        }
+
+                        // Reset lock delay if active and piece moved successfully
+                        if (GM.LockTimerActive && (moveX !== 0 || moveY !== 0)) {
+                            GM.ResetLockDelay();
+                        }
+
+                        return true;
+                    }
+                }
+                return false;
+            },
+
+            // attempt to drop the current piece until it collides, returns bool
+            TryDrop: function () {
+                var squaresDropped = 0;
+
+                if (this.Cur !== 0) {
+                    while (
+                        this.TryMove(0, 1) === true &&
+                        squaresDropped < 22
+                    ) {
+                        squaresDropped++;
+                    }
+                }
+
+                if (squaresDropped > 0) {
+                    GM.ScoreBonus += 2 * squaresDropped;
+                    // Clear T-spin flag on hard drop
+                    GM.LastActionWasTSpin = false;
+                    this.Freeze();
+                    return true;
+                } else {
+                    return false;
+                }
+            },
+
+            // attempt to find (and return) projected drop point of current piece
+            TryProject: function () {
+                var squaresDropped = 0;
+
+                if (this.Cur !== 0) {
+                    while (
+                        this.CheckCollisions(0, 0, squaresDropped) === 0 &&
+                        squaresDropped < 22
+                    ) {
+                        squaresDropped++;
+                    }
+                }
+                return squaresDropped - 1;
+            },
+
+            // return collision count OR -1 if test piece out of bounds
+            CheckCollisions: function (doRot, offsetX, offsetY) {
+                var unitArr,
+                    collisionCount = 0;
+
+                if (doRot === 1) {
+                    // Clockwise rotation
+                    unitArr = this.Cur.UO.nextUO.arr;
+                } else if (doRot === 2) {
+                    // Counterclockwise rotation
+                    unitArr = this.Cur.UO.prevUO.arr;
+                } else if (doRot === 3) {
+                    // 180 degree rotation
+                    unitArr = this.Cur.UO.nextUO.nextUO.arr;
+                } else {
+                    // No rotation
+                    unitArr = this.Cur.UO.arr;
+                }
+
+                for (var i = 0; i < unitArr.length; i++) {
+                    var testX = this.Cur.x + unitArr[i].x + offsetX,
+                        testY = this.Cur.y + unitArr[i].y + offsetY,
+                        limitX = GM.StaticUnits.length,
+                        limitY = GM.StaticUnits[0].length;
+
+                    if (testX < 0 || testX >= limitX || testY >= limitY) {
+                        return -1;
+                    } else if (testY > 0) {
+                        if (GM.StaticUnits[testX][testY] !== 0) {
+                            collisionCount++;
+                        }
+                    }
+                }
+                return collisionCount;
+            },
+        };
+
+        //--------------------------------------------------//
+        //    EVENT LISTENERS                               //
+        //--------------------------------------------------//
+
+        // Event for keyboard calls the corresponding manipulation functions
+        // in GM.Pc based on user inputs. If manipulation is successful,
+        // the page is marked as dirty.
+
+        var keysPressed = {};
+        var autoRepeatTimers = {};
+        var initialDelay = 170; // Initial delay before auto-repeat starts (ms)
+        var repeatRate = 50;    // Time between auto-repeats (ms)
+
+        function startAutoRepeat (key, action) {
+            // Clear existing timer if any
+            if (autoRepeatTimers[key]) {
+                clearTimeout(autoRepeatTimers[key]);
+            }
+
+            // Set initial delay, then start repeating
+            autoRepeatTimers[key] = setTimeout(function () {
+                var repeatInterval = setInterval(function () {
+                    if (!keysPressed[key]) {
+                        clearInterval(repeatInterval);
+                        return;
+                    }
+                    if (GM.IsAlive) {
+                        var moved = action();
+                        if (moved) {
+                            Page.Game.IsDirty = true;
+                            GM.Pc.ProjY = GM.Pc.TryProject();
+                        }
+                    }
+                }, repeatRate);
+
+                // Store interval reference to clear it later
+                autoRepeatTimers[key] = repeatInterval;
+            }, initialDelay);
+        }
+
+        function stopAutoRepeat (key) {
+            if (autoRepeatTimers[key]) {
+                clearTimeout(autoRepeatTimers[key]);
+                clearInterval(autoRepeatTimers[key]);
+                delete autoRepeatTimers[key];
+            }
+        }
+
+        document.addEventListener(
+            "keydown",
+            function (evt) {
+                var key = event.keyCode || event.which;
+
+                // Handle initial key press
+                if (!keysPressed[key]) {
+                    keysPressed[key] = true;
+
+                    if (GM.IsAlive) {
+                        switch (key) {
+                            // Up arrow = hard drop
+                            case 38:
+                                Page.Game.IsDirty = GM.Pc.TryDrop();
+                                break;
+
+                            // Left arrow = move left (with auto-repeat)
+                            case 37:
+                                Page.Game.IsDirty = GM.Pc.TryMove(-1, 0);
+                                startAutoRepeat(key, function () { return GM.Pc.TryMove(-1, 0); });
+                                break;
+
+                            // Right arrow = move right (with auto-repeat)
+                            case 39:
+                                Page.Game.IsDirty = GM.Pc.TryMove(1, 0);
+                                startAutoRepeat(key, function () { return GM.Pc.TryMove(1, 0); });
+                                break;
+
+                            // Down arrow = soft drop (allow repeat)
+                            case 40:
+                                GM.SoftDropping = true;
+                                Page.Game.IsDirty = GM.Pc.TryMove(0, 1);
+                                break;
+
+                            // Z = rotate counterclockwise
+                            case 90:
+                                Page.Game.IsDirty = GM.Pc.TryRotateCounterClockwise();
+                                break;
+
+                            // X = rotate 180 degrees
+                            case 88:
+                                Page.Game.IsDirty = GM.Pc.TryRotate180();
+                                break;
+
+                            // C = rotate clockwise
+                            case 67:
+                                Page.Game.IsDirty = GM.Pc.TryRotate();
+                                break;
+
+                            // Spacebar = hold piece
+                            case 32:
+                                Page.Game.IsDirty = GM.HoldPiece();
+                                break;
+
+                            default:
+                                break;
+                        }
+
+                        //if board was dirtied, cast fresh projection for current piece
+                        if (Page.Game.IsDirty) {
+                            GM.Pc.ProjY = GM.Pc.TryProject();
+                        }
+                    }
+
+                    // if player not alive, reset the game
+                    else {
+                        Init();
+                    }
+                }
+            },
+            false,
+        );
+
+        document.addEventListener(
+            "keyup",
+            function (evt) {
+                var key = event.keyCode || event.which;
+                keysPressed[key] = false;
+
+                // Stop auto-repeat for movement keys
+                if (key === 37 || key === 39) {
+                    stopAutoRepeat(key);
+                }
+
+                // Stop soft dropping when down arrow is released
+                if (key === 40) {
+                    GM.SoftDropping = false;
+                }
+            },
+            false,
+        );
+
+        // Window resize event calls Page function to update the canvas
+        // size/position, area bounds within the canvas, and the unitSize
+
+        window.onresize = function (event) {
+            Page.WindowChanged();
+        };
+
+        //--------------------------------------------------//
+        //    INITIALAZATION AND GAME LOOP                  //
+        //--------------------------------------------------//
+
+        // Called on page load / game reset, Init fcn initializes
+        // the Page and GM objects, then starts the main game loop.
+
+        function Init () {
+            // initialize the page object
+            Page.Initialize();
+
+            // initialize the GM object
+            GM.Initialize();
+        }
+        Init();
+
+        // Main game loop. Updates GM object to check if tick can be
+        // performed. Then, if the page is dirty, performs a Draw.
+
+        function Loop () {
+            // always update Page
+            Page.Update();
+
+            // only need to update GM if the player is alive
+            if (GM.IsAlive) {
+                GM.Update();
+            }
+
+            window.requestAnimationFrame(Loop);
+        }
+        Loop();
+
+        //--------------------------------------------------//
+        //    HELPER FUNCTIONS                              //
+        //--------------------------------------------------//
+
+        function DrawText (text, color, weight, alignment, size, left, top) {
+            Page.ctx.font = weight + " " + size + 'px "Jura", sans-serif';
+            Page.ctx.textAlign = alignment;
+            Page.ctx.fillStyle = color;
+            Page.ctx.fillText(text, left, top);
+        }
+
+        function ColorWithAlpha (color, alpha) {
+            var retColor = "rgba" + color.substring(3, color.length - 1);
+            retColor += "," + alpha + ")";
+            return retColor;
+        }
+    </script>
+</body>
+
+</html>
